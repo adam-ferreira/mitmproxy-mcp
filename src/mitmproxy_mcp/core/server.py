@@ -65,12 +65,12 @@ class MitmController:
 
         return True
 
-    async def start(self, port: int = 8080, host: str = "127.0.0.1"):
+    async def start(self, port: int = 8080, host: str = "127.0.0.1", mode: str = "regular"):
         if self.running:
             return "MITM is already running."
 
         self.port = port
-        opts = options.Options(listen_host=host, listen_port=port)
+        opts = options.Options(listen_host=host, listen_port=port, mode=[mode])
         self.master = DumpMaster(
             opts,
             with_termlog=False,
@@ -81,8 +81,8 @@ class MitmController:
 
         self.proxy_task = asyncio.create_task(self.master.run())
         self.running = True
-        logger.info("proxy_started", host=host, port=port)
-        return f"Started proxy on port {port}"
+        logger.info("proxy_started", host=host, port=port, mode=mode)
+        return f"Started proxy on port {port} (mode: {mode})"
 
     async def stop(self):
         if not self.running or not self.master:
@@ -189,9 +189,17 @@ mcp = FastMCP("Mitmproxy Manager")
 
 
 @mcp.tool()
-async def start_proxy(port: int = 8080) -> str:
+async def start_proxy(port: int = 8080, mode: str = "regular") -> str:
+    """Start the mitmproxy server.
+
+    Args:
+        port: Port to listen on (default 8080).
+        mode: Proxy mode - "regular" (default), "wireguard", "transparent", "socks5", etc.
+              In wireguard mode, mitmproxy generates a WireGuard config file for
+              routing device traffic through the proxy tunnel.
+    """
     try:
-        return await controller.start(port=port)
+        return await controller.start(port=port, mode=mode)
     except Exception as e:
         logger.error("proxy_start_failed", error=str(e))
         return f"Couldn't start the proxy: {str(e)}"
